@@ -30,6 +30,9 @@ fn https_handshake_with_rustcrypto_provider() {
         );
         let bytes = resp.bytes().await.expect("body");
         assert!(bytes.len() > 1024, "body too small: {}", bytes.len());
-        println!("https ok, {} bytes through rustcrypto provider", bytes.len());
+        println!(
+            "https ok, {} bytes through rustcrypto provider",
+            bytes.len()
+        );
     });
 }

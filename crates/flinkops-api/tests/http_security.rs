@@ -12,6 +12,8 @@ use http_body_util::BodyExt;
 use tower::ServiceExt;
 
 async fn make_app() -> (axum::Router, Arc<AppState>) {
+    // 纯 Rust TLS provider：测试里构造 reqwest::Client 之前必须装（rustls-no-provider）
+    flinkops_tls::install();
     let path = std::env::temp_dir().join(format!("flinkops-test-{}.db", uuid::Uuid::new_v4()));
     // Windows 路径要转成正斜杠，且 sqlite 需要三斜杠（sqlite:///C:/...）
     let dsn = format!(

@@ -202,10 +202,10 @@ fn resolve_web_dir(raw: &str) -> String {
     }
     if let Some(dir) = exe_dir() {
         for cand in [
-            dir.join("web"),                      // 便携包：exe 与 web/ 同级
-            dir.join("../web"),                   // exe 在 bin/ 里
-            dir.join("apps/web/dist"),            // 源码树里直接跑 release 二进制
-            dir.join("../lib/flinkops/web"),      // .deb：/usr/bin/flinkops → /usr/lib/flinkops/web
+            dir.join("web"),                 // 便携包：exe 与 web/ 同级
+            dir.join("../web"),              // exe 在 bin/ 里
+            dir.join("apps/web/dist"),       // 源码树里直接跑 release 二进制
+            dir.join("../lib/flinkops/web"), // .deb：/usr/bin/flinkops → /usr/lib/flinkops/web
         ] {
             if cand.exists() {
                 return normalize(&cand);

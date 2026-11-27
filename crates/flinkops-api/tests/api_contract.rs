@@ -82,6 +82,8 @@ fn concrete(path: &str) -> String {
 }
 
 async fn app() -> axum::Router {
+    // 纯 Rust TLS provider：测试里构造 reqwest::Client 之前必须装（rustls-no-provider）
+    flinkops_tls::install();
     let path = std::env::temp_dir().join(format!("flinkops-contract-{}.db", uuid::Uuid::new_v4()));
     let dsn = format!(
         "sqlite:///{}?mode=rwc",

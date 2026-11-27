@@ -21,7 +21,8 @@ static INSTALL: Once = Once::new();
 /// 安装进程级 [`rustls::crypto::CryptoProvider`]（幂等，重复调用安全）。
 ///
 /// 必须在创建任何 TLS 客户端之前调用：`rustls` 在没有 provider 时会 panic
-/// （"no process-level CryptoProvider available"）。
+/// （"no process-level CryptoProvider available"）。集成测试里如果直接 `reqwest::Client::new()`
+/// 也要先调一次 —— 测试是独立 crate，不会走二进制的 `main`。
 pub fn install() {
     INSTALL.call_once(|| {
         let provider = rustls_rustcrypto::provider();
