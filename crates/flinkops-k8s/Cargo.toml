@@ -1,0 +1,21 @@
+[package]
+name = "flinkops-k8s"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+chrono = "0.4.45"
+flinkops-types = { version = "0.1.0", path = "../flinkops-types" }
+futures = "0.3.34"
+k8s-openapi = { version = "0.26", features = ["v1_31"] }
+kube = { version = "2.0.1", features = ["client", "runtime"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+serde_yaml = "0.9.34"
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+tracing = "0.1.44"
+uuid = { version = "1.26.1", features = ["v4"] }
+

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: flinkops
+description: Flink Kubernetes Operator 控制台（作业管理 / 实时指标 / UI 只读反代）
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+license: Apache-2.0

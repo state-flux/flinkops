@@ -1,0 +1,20 @@
+FlinkOps
+Copyright 2026 FlinkOps contributors
+
+This product includes software developed at the Apache Software Foundation
+(http://www.apache.org/): Apache Flink, consumed as a runtime dependency and
+driven through its public REST API and Kubernetes CRDs. Apache Flink, Flink,
+and the Flink logo are trademarks of the Apache Software Foundation.
+
+This project is not affiliated with, endorsed by, or sponsored by the Apache
+Software Foundation, nor by any vendor distribution of the Flink Kubernetes
+Operator.
+
+Third-party components:
+
+- Rust crates declared in Cargo.toml / Cargo.lock (axum, tokio, kube, sqlx,
+  reqwest, serde, …), each under its own license.
+- JavaScript packages declared in apps/web/package.json (Vue 3, Tailwind CSS,
+  CodeMirror 6, lucide icons, …), each under its own license.
+
+When redistributing, keep this NOTICE together with the LICENSE file.

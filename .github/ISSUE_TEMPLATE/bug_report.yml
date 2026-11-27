@@ -1,0 +1,60 @@
+name: Bug report
+description: Something behaves differently from what the docs say
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you file: this project drives a real Kubernetes cluster, so the versions matter.
+        Please **do not paste tokens, kubeconfigs, `last-applied-configuration`, or pod env values.**
+
+  - type: input
+    id: version
+    attributes:
+      label: FlinkOps version / commit
+      placeholder: v0.1.0 or commit sha
+    validations:
+      required: true
+
+  - type: input
+    id: flink
+    attributes:
+      label: Flink and operator version
+      placeholder: Flink 1.15.4 / flink-kubernetes-operator 1.5.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How is FlinkOps deployed?
+      options:
+        - In-cluster (Helm, clusters=local=incluster)
+        - Local / outside the cluster (kubeconfig)
+        - Docker
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the exact request (method + path) and the response body.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: 'RUST_LOG=info,flinkops_api=debug output, and the corresponding audit row if there is one.'
+      render: shell
+    validations:
+      required: false

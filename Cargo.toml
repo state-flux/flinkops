@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/flinkops-types",
+  "crates/flinkops-core",
+  "crates/flinkops-store",
+  "crates/flinkops-k8s",
+  "crates/flinkops-flink-rest",
+  "crates/flinkops-api",
+  "crates/flinkops-cli",
+  "crates/flinkops-mcp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.85"
+
+[profile.release]
+lto = true
+panic = "abort"
+strip = true
+codegen-units = 1
+
+[profile.dev.package."*"]
+debug = "line-tables-only"

@@ -1,0 +1,166 @@
+name: release
+
+# 打 tag 即发版：多架构镜像 → ghcr.io/state-flux/flinkops，Helm chart → ghcr.io/state-flux/charts
+# 用法：git tag -a v0.1.0 -m "..." && git push origin v0.1.0
+#
+# 所用 action 均为 Node 24 运行时版本（Node 20 已在 GitHub Actions 上弃用），
+# 发版说明与附件改用 runner 预装的 gh CLI，不再依赖 softprops/action-gh-release。
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "版本号（如 v0.1.0），仅手动触发时需要"
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/flinkops
+  CHART_OCI: oci://ghcr.io/${{ github.repository_owner }}/charts
+
+jobs:
+  verify:
+    name: verify / version + tests
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - id: v
+        name: resolve version and compare with Chart.yaml
+        run: |
+          REF="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${REF#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if echo "$VERSION" | grep -q '-'; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          CHART_APP=$(awk '/^appVersion:/ {gsub(/"/,"",$2); print $2}' deploy/helm/flinkops/Chart.yaml)
+          CHART_VER=$(awk '/^version:/ {print $2}' deploy/helm/flinkops/Chart.yaml)
+          echo "tag=$VERSION chart.version=$CHART_VER chart.appVersion=$CHART_APP"
+          if [ "$VERSION" != "$CHART_VER" ] || [ "$VERSION" != "$CHART_APP" ]; then
+            echo "::error::版本不一致：tag=$VERSION chart.version=$CHART_VER chart.appVersion=$CHART_APP"
+            echo "发版前请把 deploy/helm/flinkops/Chart.yaml 的 version 与 appVersion 都对成 $VERSION"
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.85
+      - uses: Swatinem/rust-cache@v2
+
+      - name: tests
+        run: cargo test --workspace --all-targets
+
+  image:
+    name: image / buildx push (multi-arch)
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.verify.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.verify.outputs.version }}
+            type=raw,value=latest,enable=${{ needs.verify.outputs.prerelease == 'false' }}
+
+      - name: build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  chart:
+    name: chart / package + push OCI
+    runs-on: ubuntu-latest
+    needs: [verify, image]
+    steps:
+      - uses: actions/checkout@v5
+
+      # ubuntu-latest 自带 helm；缺失时现装（避免再引入一个 Node 20 的 action）
+      - name: helm
+        run: |
+          helm version --short || {
+            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+            helm version --short
+          }
+
+      - name: lint
+        run: helm lint deploy/helm/flinkops
+
+      - name: package
+        run: |
+          helm package deploy/helm/flinkops --destination dist
+          ls -l dist
+
+      - name: push to ghcr (OCI)
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+          helm push dist/flinkops-${{ needs.verify.outputs.version }}.tgz ${{ env.CHART_OCI }}
+
+      # gh CLI 在 runner 上预装，直接用它建/更新 release（不再用 Node 20 的 action）
+      - name: attach chart to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          VER: ${{ needs.verify.outputs.version }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+        run: |
+          NOTES="$RUNNER_TEMP/release-notes.md"
+          {
+            echo "## 镜像 / Image"
+            echo '```'
+            echo "docker pull ${{ env.IMAGE }}:$VER"
+            echo '```'
+            echo
+            echo "## Helm"
+            echo '```bash'
+            echo "helm install flinkops ${{ env.CHART_OCI }}/flinkops \\"
+            echo "  --version $VER \\"
+            echo "  -n flinkops --create-namespace \\"
+            echo "  --set store.storageClass=local-path"
+            echo '```'
+            echo
+            echo "镜像为 \`linux/amd64\` + \`linux/arm64\`；chart 与镜像同版本号。"
+          } > "$NOTES"
+
+          FLAGS=""
+          if [ "$PRERELEASE" = "true" ]; then FLAGS="--prerelease"; fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/*.tgz --clobber
+            gh release edit "$TAG" --notes-file "$NOTES" $FLAGS
+          else
+            gh release create "$TAG" dist/*.tgz --title "$TAG" \
+              --notes-file "$NOTES" $FLAGS
+          fi

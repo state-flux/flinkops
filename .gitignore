@@ -1,0 +1,54 @@
+# Rust
+/target/
+/target-*/
+**/*.rs.bk
+
+# 前端
+node_modules/
+apps/web/dist/
+.vite/
+
+# 本地数据与密钥
+/data
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.local
+.env.*.local
+.env.production
+# 示例/模板必须进仓库，否则新人不知道要配哪些变量
+!.env.example
+!.env.sample
+.secrets/
+*.pem
+*.crt
+*.key
+kubeconfig*
+flinkops-jobs.json
+
+# 编辑器 / 系统
+.DS_Store
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+
+# 临时产物
+*.log
+/tmp
+
+# vue-tsc 的编译副产物（与 .ts/.vue 同名同目录，别提交）
+apps/web/src/**/*.js
+apps/web/vite.config.js
+apps/web/tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# vue-tsc 曾经把产物落到源码树（已加 noEmit，这里兜底）
+*.vue.js
+apps/web/vite.config.js
+tsconfig.tsbuildinfo
+
+# 内部分析报告不进公开仓库（含内网域名/作业名），本地保留在 data/internal-reports/
+docs/review-*.md
+docs/manual-test-cases-*.csv

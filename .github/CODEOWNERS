@@ -1,0 +1,13 @@
+# 默认由维护者 review；改成你自己的 GitHub 账号或团队
+*       @state-flux
+
+# 分层相关
+/crates/flinkops-api/     @state-flux
+/crates/flinkops-k8s/     @state-flux
+/crates/flinkops-mcp/     @state-flux
+/apps/web/                @state-flux
+
+# 契约类文件：改动必须有人复核
+/docs/api-spec.md         @state-flux
+/docs/mcp-spec.md         @state-flux
+/SECURITY.md              @state-flux

@@ -1,0 +1,115 @@
+/* ==========================================================================
+   FlinkOps 设计令牌（亮色主题）
+   语义类名保持不变（bg-app / bg-surface / text-fg-2 / border-line），
+   只反转令牌值 —— 这样 22 个页面不需要逐页改类名。
+   ========================================================================== */
+@import "tailwindcss";
+
+@theme {
+  /* 底色 & 表面 */
+  --color-app: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-surface-3: #eef2f7;
+  --color-hover: #f1f5f9;
+  --color-line: #e2e8f0;
+  --color-line-2: #edf1f6;
+
+  /* 文本：对比度控制在 WCAG AA 附近，不再用纯黑/纯白 */
+  --color-fg: #0f172a;
+  --color-fg-1: #334155;
+  --color-fg-2: #64748b;
+
+  /* 品牌 & 状态（亮色下加深，保证白底可读） */
+  --color-accent: #e11d48;
+  --color-primary: #2563eb;
+  --color-ok: #047857;
+  --color-warn: #b45309;
+  --color-danger: #b91c1c;
+  --color-info: #0369a1;
+  --color-violet: #6d28d9;
+
+  --radius-xs: 6px;
+  --radius-sm: 9px;
+  --radius-DEFAULT: 12px;
+  --radius-lg: 16px;
+
+  /* 字号阶梯：把原先散落的 text-[10px]…[13.5px] 收敛成 4 档（占比 94%） */
+  --text-3xs: 10.5px;
+  --text-3xs--line-height: 15px;
+  --text-2xs: 11.5px;
+  --text-2xs--line-height: 16px;
+  --text-sm2: 13px;
+  --text-sm2--line-height: 19px;
+
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, Consolas, monospace;
+}
+
+/* shadcn-vue 语义变量：跟随亮色 */
+:root {
+  --background: var(--color-app);
+  --foreground: var(--color-fg);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-fg);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-fg);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-surface-3);
+  --secondary-foreground: var(--color-fg);
+  --muted: var(--color-surface-2);
+  --muted-foreground: var(--color-fg-2);
+  --accent-foreground: var(--color-fg);
+  --destructive: var(--color-danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-line);
+  --input: var(--color-line);
+  --ring: var(--color-primary);
+  --radius: 12px;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  background: var(--color-app);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 20px;
+  border: 2px solid var(--color-app);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 代码块 / 日志：浅底深字，避免高对比刺眼 */
+pre,
+code,
+.mono-block {
+  color: var(--color-fg-1);
+}
+pre {
+  background: #f8fafc;
+  border: 1px solid var(--color-line-2);
+}
+/* 登录页背景：浅色渐变（与整站亮色一致），避免白字配浅底看不清 */
+.login-bg {
+  background:
+    radial-gradient(900px 520px at 10% -10%, #e0e7ff 0%, transparent 60%),
+    radial-gradient(760px 460px at 100% 8%, #ccfbf1 0%, transparent 58%),
+    linear-gradient(160deg, #f8fafc 0%, #eef2f7 55%, #e7edf5 100%);
+}

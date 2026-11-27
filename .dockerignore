@@ -1,0 +1,20 @@
+# 构建上下文只需要源码与清单；这些都不进镜像
+.git
+.github
+target
+target-verify
+data
+**/*.db
+**/*.db-wal
+**/*.db-shm
+apps/web/node_modules
+apps/web/dist
+docs/design
+docs/screenshots
+shots
+*.md
+!README.md
+.env
+.env.*
+.secrets
+**/*.log

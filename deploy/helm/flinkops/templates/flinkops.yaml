@@ -1,0 +1,217 @@
+{{- $fullName := include "flinkops.fullname" . -}}
+{{- $saName := default $fullName .Values.serviceAccount.name -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $saName }}
+  labels:
+    app.kubernetes.io/name: flinkops
+    app.kubernetes.io/instance: {{ .Release.Name }}
+---
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullName }}
+rules:
+  # Flink Operator 的 4 类 CRD（读写；readonly 时下面会裁剪）
+  - apiGroups: ["flink.apache.org"]
+    resources:
+      - flinkdeployments
+      - flinksessionjobs
+      - flinkstatesnapshots
+      - flinkbluegreendeployments
+    verbs:
+      {{- if .Values.readonly }}
+      ["get", "list", "watch"]
+      {{- else }}
+      ["get", "list", "watch", "create", "update", "patch", "delete"]
+      {{- end }}
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "events", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  # 平台可以在作业上创建/删除 Ingress（"开 REST 入口"按钮）
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs:
+      {{- if .Values.readonly }}
+      ["get", "list", "watch"]
+      {{- else }}
+      ["get", "list", "watch", "create", "update", "patch", "delete"]
+      {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullName }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullName }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $saName }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+---
+{{- if eq .Values.store.type "sqlite" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fullName }}-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- if .Values.store.storageClass }}
+  storageClassName: {{ .Values.store.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.store.size }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}
+  labels:
+    app.kubernetes.io/name: flinkops
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  {{- if eq .Values.store.type "sqlite" }}
+  strategy:
+    type: Recreate      # SQLite 单写者，禁止滚动双实例
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: flinkops
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: flinkops
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $saName }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: flinkops
+          image: "{{ include "flinkops.image" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - { name: http, containerPort: 8080 }
+          env:
+            - { name: FLINKOPS_BIND, value: "0.0.0.0:8080" }
+            - { name: FLINKOPS_WEB_DIR, value: "/app/web" }
+            - { name: FLINKOPS_CLUSTERS, value: {{ .Values.clusters | quote }} }
+            - { name: FLINKOPS_READONLY, value: {{ .Values.readonly | quote }} }
+            - { name: FLINKOPS_AUDIT_RETENTION_DAYS, value: {{ .Values.audit.retentionDays | quote }} }
+            - { name: FLINKOPS_DB_MAX_MB, value: {{ .Values.audit.maxDbMb | quote }} }
+            - { name: FLINKOPS_PROMETHEUS_URL, value: {{ .Values.metrics.prometheusUrl | quote }} }
+            - { name: FLINKOPS_ADMIN_USER, value: {{ .Values.auth.adminUser | quote }} }
+            {{- if eq .Values.store.type "sqlite" }}
+            - { name: FLINKOPS_STORE, value: "sqlite:///data/flinkops.db?mode=rwc" }
+            {{- else }}
+            - name: FLINKOPS_STORE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-db" $fullName) .Values.store.existingSecret }}
+                  key: dsn
+            {{- end }}
+            {{- if .Values.auth.existingSecret }}
+            - name: FLINKOPS_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: {{ .Values.auth.existingSecret }}, key: password }
+            {{- else }}
+            - { name: FLINKOPS_ADMIN_PASSWORD, value: {{ .Values.auth.adminPassword | quote }} }
+            {{- end }}
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            {{- if eq .Values.store.type "sqlite" }}
+            - { name: data, mountPath: /data }
+            {{- end }}
+            - { name: tmp, mountPath: /tmp }
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- if eq .Values.store.type "sqlite" }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ $fullName }}-data
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app.kubernetes.io/name: flinkops
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - { name: http, port: {{ .Values.service.port }}, targetPort: http }
+---
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}
+                port: { number: {{ .Values.service.port }} }
+  {{- if .Values.ingress.tlsSecret }}
+  tls:
+    - hosts: [{{ .Values.ingress.host }}]
+      secretName: {{ .Values.ingress.tlsSecret }}
+  {{- end }}
+{{- end }}

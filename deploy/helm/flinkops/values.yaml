@@ -1,0 +1,73 @@
+image:
+  # 官方镜像：ghcr.io/state-flux/flinkops（打 tag 时由 .github/workflows/release.yml 推送）
+  repository: ghcr.io/state-flux/flinkops
+  # 留空 = 用 Chart.appVersion；要钉版本就在这里显式写
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+replicas: 1
+
+# 存储：sqlite（默认，零依赖）| postgres | mysql
+store:
+  type: sqlite
+  size: 1Gi
+  storageClass: ""          # k3s 常用 local-path
+  # 远程库时填 dsn（或用下面的 existingSecret）；sqlite 留空即可
+  dsn: ""
+  existingSecret: ""        # 含 key `dsn`
+
+# 指标：none（只有 REST 实时）| prometheus（历史 + 聚合）
+metrics:
+  backend: none
+  prometheusUrl: ""
+
+# 接入的 flink-operator 集群：id=incluster 或 id=/path/to/kubeconfig，逗号分隔
+# 只有 in-cluster（平台自己也在这个集群里）才能用 ClusterIP 访问作业 REST
+clusters: "local=incluster"
+readonly: false
+
+auth:
+  adminUser: admin
+  adminPassword: changeme   # 生产请换成 Secret
+  existingSecret: ""        # 含 key `password`
+
+audit:
+  retentionDays: 90
+  maxDbMb: 512
+
+serviceAccount:
+  create: true
+  name: ""
+  automountServiceAccountToken: true
+
+rbac:
+  create: true
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: nginx           # k3s 用 traefik
+  host: flinkops.example.com
+  tlsSecret: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# 若与 Flink 作业不在同一集群，用 kubeconfig 挂载（配合 clusters: "id=/path/to/kubeconfig"）
+extraVolumes: []
+extraVolumeMounts: []

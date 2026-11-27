@@ -1,0 +1,23 @@
+[package]
+name = "flinkops-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = "1.0.105"
+chrono = "0.4.45"
+flinkops-types = { version = "0.1.0", path = "../flinkops-types" }
+serde_json = "1.0.154"
+argon2 = { version = "0.5.3", features = ["std"] }
+sha2 = "0.10.9"
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "any", "sqlite", "postgres", "mysql", "macros", "migrate", "chrono", "uuid"] }
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "process"] }
+tracing = "0.1.44"
+uuid = { version = "1.26.1", features = ["v4"] }
+
+[dev-dependencies]
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread"] }
+uuid = { version = "1.26.1", features = ["v4"] }
