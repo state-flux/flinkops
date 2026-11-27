@@ -38,6 +38,15 @@ Thumbs.db
 *.log
 /tmp
 
+# 发行产物与本地工具链（NSIS 等，不入库）
+/dist/
+/release/
+.tools/
+
+# Python 缓存（scripts/*.py 被 release_notes.py 导入时会生成）
+__pycache__/
+*.pyc
+
 # vue-tsc 的编译副产物（与 .ts/.vue 同名同目录，别提交）
 apps/web/src/**/*.js
 apps/web/vite.config.js

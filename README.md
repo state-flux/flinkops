@@ -61,6 +61,7 @@ CRD, every action writes an audit row, and the Flink Web UI is reverse-proxied r
 ```
 crates/                        Rust backend
 ├─ flinkops-types/             DTOs + CRD field extraction + errors (no kube/axum)
+├─ flinkops-tls/               pure-Rust TLS provider (rustls + RustCrypto) — no C toolchain needed to cross-build
 ├─ flinkops-core/              pure logic: baseline merge / validation / diff / health
 ├─ flinkops-store/             sqlx::Any → SQLite / PostgreSQL (dialect-aware placeholders)
 ├─ flinkops-k8s/               kube dynamic client (flink.apache.org/v1beta1)
@@ -107,6 +108,21 @@ variables needed:
 ```bash
 cd apps/web && npm install && npm run dev   # :5173, /api and /proxy proxied to :8080
 ```
+
+### Release artifacts
+
+Tagging runs the multi-platform build on native runners; every artifact ships with `SHA256SUMS.txt`:
+
+| Platform | Artifact | Install |
+|---|---|---|
+| Linux x86_64 / arm64 | `flinkops-<ver>-<triple>.tar.gz` | `tar -xzf … && ./start.sh` |
+| Debian / Ubuntu | `flinkops_<ver>_amd64.deb` / `_arm64.deb` | `dpkg -i`, systemd unit |
+| macOS Intel / Apple Silicon | `flinkops-<ver>-<triple>.tar.gz` | `tar -xzf … && ./start.sh` |
+| Windows x86_64 | `.zip` (portable) / `-setup.exe` (installer) | unzip and run `flinkops.exe`; installer needs no admin |
+| Source (any platform) | `-src.tar.gz` / `-src.zip` | unpack, `cargo build --release` |
+
+Each archive holds `bin/{flinkops,flinkopsctl,flinkops-mcp}` + `web/` + env sample and systemd unit.
+Release runbook (version alignment, artifact matrix, packager flags, rollback): [`docs/release.en.md`](docs/release.en.md).
 
 ### Docker
 

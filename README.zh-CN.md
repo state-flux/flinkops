@@ -27,6 +27,7 @@ Flink Kubernetes Operator 的控制台：**单个 Rust 二进制**（axum）托�
 ```
 crates/                        Rust（后端）
 ├─ flinkops-types/             DTO + CRD 字段提取 + 错误（不依赖 kube/axum）
+├─ flinkops-tls/               纯 Rust TLS provider（rustls + RustCrypto），交叉编译不再需要目标平台 C 工具链
 ├─ flinkops-core/              纯逻辑：基线合并 / 校验 / diff / 健康度
 ├─ flinkops-store/             sqlx::Any → SQLite / PostgreSQL（方言层重写占位符）
 ├─ flinkops-k8s/               kube 动态客户端（flink.apache.org/v1beta1）
@@ -84,6 +85,21 @@ INFO cluster connected cluster=local
 ```bash
 cd apps/web && npm install && npm run dev               # :5173，/api 与 /proxy 自动代理到 :8080
 ```
+
+### 发行包（Releases）
+
+打 tag 后由 CI 在原生 runner 上编译，同一套布局、附 `SHA256SUMS.txt`：
+
+| 平台 | 产物 | 安装 |
+|---|---|---|
+| Linux x86_64 / arm64 | `flinkops-<ver>-<triple>.tar.gz` | `tar -xzf … && ./start.sh` |
+| Debian / Ubuntu | `flinkops_<ver>_amd64.deb` / `_arm64.deb` | `dpkg -i`，systemd unit |
+| macOS Intel / Apple Silicon | `flinkops-<ver>-<triple>.tar.gz` | `tar -xzf … && ./start.sh` |
+| Windows x86_64 | `.zip`（便携） / `-setup.exe`（安装包） | 解压双击 `flinkops.exe`；安装包免管理员 |
+| 源码（任意平台） | `-src.tar.gz` / `-src.zip` | 解压后 `cargo build --release` |
+
+每个包里是 `bin/{flinkops,flinkopsctl,flinkops-mcp}` + `web/` + 配置样例与 systemd unit。
+发版细节（版本对齐、产物矩阵、打包器参数、回滚）见 [`docs/release.md`](docs/release.md)。
 
 ### Docker
 
