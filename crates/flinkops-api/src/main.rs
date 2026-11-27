@@ -11,9 +11,9 @@ use tracing::{info, warn};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // rustls 0.23：kube 与 reqwest 同时依赖时 feature 互相覆盖，
-    // 必须显式安装 CryptoProvider，否则首个 TLS 握手 panic。
-    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+    // TLS：纯 Rust provider（rustls + RustCrypto）。必须在任何 TLS 客户端之前安装，
+    // 否则首个握手会 panic（no process-level CryptoProvider）。见 crates/flinkops-tls。
+    flinkops_tls::install();
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -226,10 +226,54 @@ async fn main() -> anyhow::Result<()> {
         Err(e) => return Err(anyhow::anyhow!("无法监听 {}: {e}", cfg.bind)),
     };
     info!(addr = %cfg.bind, "listening");
+
+    // 双击启动（便携包 / 安装包）时，控制台里要能一眼看到"去哪儿访问"。
+    // 横幅刻意全用 ASCII：Windows 控制台默认代码页不是 UTF-8，中文会变乱码。
+    let local_url = format!("http://{}:{}", display_host(&cfg.bind), cfg.bind.port());
+    println!(
+        "\n  FlinkOps {ver} is running\n  \
+         open:   {url}\n  \
+         login:  {user} / admin   (change the password after the first login)\n  \
+         config: .env next to the exe (or env vars)   stop: Ctrl-C\n",
+        ver = env!("CARGO_PKG_VERSION"),
+        url = local_url,
+        user = cfg.admin_user,
+    );
+    if cfg.open_browser {
+        open_browser(&local_url);
+    }
+
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     Ok(())
+}
+
+/// 展示用的主机名：监听 `0.0.0.0` / `[::]` 时点击用的应该是本机回环地址。
+fn display_host(bind: &std::net::SocketAddr) -> String {
+    let ip = bind.ip();
+    if ip.is_unspecified() {
+        return "127.0.0.1".to_string();
+    }
+    match ip {
+        std::net::IpAddr::V6(v6) => format!("[{v6}]"),
+        std::net::IpAddr::V4(v4) => v4.to_string(),
+    }
+}
+
+/// 用系统默认浏览器打开 URL（失败就只记一条 debug，不影响服务）。
+fn open_browser(url: &str) {
+    #[cfg(target_os = "windows")]
+    let spawned = std::process::Command::new("cmd")
+        .args(["/C", "start", "", url])
+        .spawn();
+    #[cfg(target_os = "macos")]
+    let spawned = std::process::Command::new("open").arg(url).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let spawned = std::process::Command::new("xdg-open").arg(url).spawn();
+    if spawned.is_err() {
+        tracing::debug!(url, "could not open a browser automatically");
+    }
 }
 
 /// 优雅停机：收到 Ctrl-C / SIGTERM 后停止接新连接，等在途请求收尾。

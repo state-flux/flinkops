@@ -28,10 +28,17 @@ pub struct Config {
     /// 动态接入时"粘贴 kubeconfig"落盘的位置（目录 0700、文件 0600）。
     /// `FLINKOPS_CLUSTERS_DIR`，默认放在 SQLite 同级的 `clusters/`（其它后端用 `./data/clusters`）。
     pub clusters_dir: std::path::PathBuf,
+    /// 启动后自动打开浏览器：`FLINKOPS_OPEN_BROWSER=1`。
+    /// 便携包 / 安装包默认打开，双击 exe 就能直接用。
+    pub open_browser: bool,
 }
 
 impl Config {
     pub fn from_env() -> Self {
+        // 先加载 .env：便携包/安装包靠它做到"双击即用"，而且 FLINKOPS_STORE / FLINKOPS_BIND
+        // 也在 .env 里，所以必须比任何读取都早。
+        load_dotenv();
+
         let store_dsn = resolve_store_dsn(&env_or(
             "FLINKOPS_STORE",
             "sqlite://./data/flinkops.db?mode=rwc",
@@ -39,10 +46,7 @@ impl Config {
         let bind = std::env::var("FLINKOPS_BIND")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or_else(|| "0.0.0.0:8080".parse().expect("valid default bind"));
-
-        // 先加载 .env（IDE 里直接点运行时没有环境变量，这是必要的兜底）
-        load_dotenv();
+            .unwrap_or_else(|| "127.0.0.1:8080".parse().expect("valid default bind"));
 
         let clusters = match std::env::var("FLINKOPS_CLUSTERS") {
             Ok(raw) => raw.split(',').filter_map(parse_cluster).collect(),
@@ -68,6 +72,7 @@ impl Config {
             cookie_secure: std::env::var("FLINKOPS_COOKIE_SECURE")
                 .ok()
                 .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes")),
+            open_browser: env_flag("FLINKOPS_OPEN_BROWSER"),
         }
     }
 }
@@ -159,7 +164,13 @@ fn resolve_store_dsn(dsn: &str) -> String {
     if path.starts_with(':') || !(path.starts_with("./") || path.starts_with("../")) {
         return dsn.to_string();
     }
-    let Some(root) = workspace_root() else {
+    // 相对 DSN 的基准：在仓库里开发时以 workspace 根为准；便携包/安装包（exe 不在仓库内）
+    // 以 exe 所在目录为准，这样双击启动后数据落在程序旁边。
+    let base = match workspace_root() {
+        Some(root) if exe_inside(&root) => Some(root),
+        _ => exe_dir().or_else(workspace_root),
+    };
+    let Some(root) = base else {
         return dsn.to_string();
     };
     let joined = normalize(&root.join(path));
@@ -173,19 +184,65 @@ fn resolve_store_dsn(dsn: &str) -> String {
     }
 }
 
-/// 静态目录解析：存在就用，否则向上找。
+/// 静态目录解析：显式路径 → CWD 向上查找 → exe 同级（便携包）→ 系统安装路径。
 fn resolve_web_dir(raw: &str) -> String {
-    if std::path::Path::new(raw).exists() {
+    let p = std::path::Path::new(raw);
+    if p.exists() {
+        // 相对路径转成绝对路径，避免后续 CWD 变化（服务里不再依赖 CWD）
+        if p.is_absolute() {
+            return normalize(p);
+        }
+        if let Ok(cwd) = std::env::current_dir() {
+            return normalize(&cwd.join(p));
+        }
         return raw.to_string();
     }
-    find_up(&[raw]).unwrap_or_else(|| raw.to_string())
+    if let Some(p) = find_up(&[raw]) {
+        return p;
+    }
+    if let Some(dir) = exe_dir() {
+        for cand in [
+            dir.join("web"),                      // 便携包：exe 与 web/ 同级
+            dir.join("../web"),                   // exe 在 bin/ 里
+            dir.join("apps/web/dist"),            // 源码树里直接跑 release 二进制
+            dir.join("../lib/flinkops/web"),      // .deb：/usr/bin/flinkops → /usr/lib/flinkops/web
+        ] {
+            if cand.exists() {
+                return normalize(&cand);
+            }
+        }
+    }
+    raw.to_string()
+}
+
+/// exe 是否就位于该 workspace 内（决定相对路径以谁为基准）。
+fn exe_inside(root: &std::path::Path) -> bool {
+    match std::env::current_exe() {
+        Ok(exe) => exe.starts_with(root),
+        Err(_) => false,
+    }
+}
+
+/// exe 所在目录（便携包 / 安装包用它定位 web、.env、data）。
+fn exe_dir() -> Option<std::path::PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    exe.parent().map(|p| p.to_path_buf())
+}
+
+/// `.env` 的位置：先按 CWD 向上找（开发时），再找 exe 同级（双击启动时 CWD 可能不是程序目录）。
+fn dotenv_path() -> Option<String> {
+    if let Some(p) = find_up(&[".env"]) {
+        return Some(p);
+    }
+    let candidate = exe_dir()?.join(".env");
+    candidate.exists().then(|| normalize(&candidate))
 }
 
 /// 极简 .env 解析（KEY=VALUE，# 注释）；不覆盖已存在的环境变量。
 ///
 /// 刻意不引 dotenvy：只有 20 行，且行为可预测。
 fn load_dotenv() {
-    let Some(path) = find_up(&[".env"]) else {
+    let Some(path) = dotenv_path() else {
         return;
     };
     let Ok(text) = std::fs::read_to_string(&path) else {

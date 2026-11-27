@@ -57,6 +57,8 @@ enum Cmd {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // 纯 Rust TLS provider（rustls + RustCrypto），必须先于任何 reqwest 客户端
+    flinkops_tls::install();
     let cli = Cli::parse();
     let http = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))

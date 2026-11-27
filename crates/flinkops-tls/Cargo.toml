@@ -1,0 +1,17 @@
+[package]
+name = "flinkops-tls"
+description = "纯 Rust TLS 后端：rustls + RustCrypto provider，去掉 aws-lc-rs / ring 的 C 与汇编依赖，便于交叉编译"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# rustls 本身不选 provider（不启用 aws_lc_rs / ring），由 RustCrypto provider 提供算法实现
+rustls = { version = "0.23.46", default-features = false, features = ["std", "logging", "tls12"] }
+rustls-rustcrypto = { version = "0.1.0-pre.0", default-features = false, features = ["std", "tls12"] }
+tracing = "0.1.44"
+
+[dev-dependencies]
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "http2", "charset", "rustls-no-provider"] }

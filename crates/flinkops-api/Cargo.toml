@@ -23,8 +23,8 @@ futures = "0.3.34"
 hmac = "0.12.1"
 http = "1.5.0"
 mime_guess = "2.0.5"
-reqwest = { version = "0.13.5", features = ["json"] }
-rustls = { version = "0.23.46", default-features = false, features = ["aws_lc_rs", "std", "logging", "tls12"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "http2", "charset", "rustls-no-provider"] }
+flinkops-tls = { version = "0.1.0", path = "../flinkops-tls" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 serde_yaml = "0.9.34"

@@ -30,6 +30,8 @@ const PROTOCOL_VERSION: &str = "2024-11-05";
 
 #[tokio::main]
 async fn main() {
+    // 纯 Rust TLS provider（rustls + RustCrypto），必须先于任何 reqwest 客户端
+    flinkops_tls::install();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let base = std::env::var("FLINKOPS_URL").unwrap_or_else(|_| "http://127.0.0.1:8080".into());
     let token = std::env::var("FLINKOPS_MCP_TOKEN").unwrap_or_default();

@@ -102,6 +102,7 @@ async fn app() -> axum::Router {
         readonly: false,
         clusters_dir: std::env::temp_dir().join("flinkops-test-clusters"),
         cookie_secure: Some(false),
+        open_browser: false,
     };
     let (approvals_tx, _rx) = tokio::sync::broadcast::channel(8);
     let state = Arc::new(AppState {
