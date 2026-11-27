@@ -231,6 +231,23 @@ two debs, one chart — a missing platform fails the release), then:
 3. `gh release create --verify-tag` (or `upload --clobber` + `edit` when it already exists),
    with `--latest` for stable and `--prerelease` for pre-releases.
 
+## 5.5 Preparing a manual upload bundle
+
+When you want to drag files into the release page yourself, generate the manifest and bundle first:
+
+```bash
+python scripts/dist.py --version 0.1.0 --formats zip,setup
+python scripts/dist.py --version 0.1.0 --formats src-tar.gz,src-zip
+python scripts/release_notes.py --version 0.1.0 --dist dist
+python scripts/upload_bundle.py --version 0.1.0 --dist dist
+# → dist/MANIFEST.md      artifact list (file / size / SHA-256 / platform)
+# → dist/UPLOAD.md        upload steps (what to drag, what to paste, latest flag)
+# → dist/flinkops-0.1.0-upload-bundle.zip   everything above plus the artifacts
+```
+
+Names come from `dist.py`, and platforms this machine cannot build (Linux/macOS) are listed separately
+as "CI 补齐" so a partial set never looks like a full release. CI can run `make bundle` as well.
+
 ## 6. Post-release verification
 
 ```bash

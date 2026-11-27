@@ -228,6 +228,23 @@ gh release view v0.1.0        # 产物列表
 3. `gh release create --verify-tag`（已存在则 `gh release upload --clobber` 后 `gh release edit`）；
    正式版加 `--latest`，预发布加 `--prerelease`。
 
+## 5.5 本地准备上传包
+
+要手动往 Release 页面拖文件时，先让脚本把清单整理好（附件清单 + 上传步骤 + 一个 zip）：
+
+```bash
+python scripts/dist.py --version 0.1.0 --formats zip,setup          # 本机能编的部分
+python scripts/dist.py --version 0.1.0 --formats src-tar.gz,src-zip
+python scripts/release_notes.py --version 0.1.0 --dist dist
+python scripts/upload_bundle.py --version 0.1.0 --dist dist
+# → dist/MANIFEST.md       附件清单（文件 / 大小 / SHA-256 / 平台）
+# → dist/UPLOAD.md         上传步骤（拖哪些、正文贴哪个、怎么标 latest）
+# → dist/flinkops-0.1.0-upload-bundle.zip   以上 + 全部附件，方便搬机器
+```
+
+清单里的产物名同样来自 `dist.py`，本地编不出来的平台（Linux/macOS）会单独列成「待 CI 补齐」，
+避免把半套产物当成全套发出去。CI 上也可以跑 `make bundle` 复核。
+
 ## 6. 发布后校验
 
 ```bash

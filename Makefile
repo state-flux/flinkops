@@ -8,7 +8,7 @@ VERSION ?= $(TAG)
 FORMATS ?= tar.gz
 
 .PHONY: help build release run test check fmt clippy deny docker helm-lint smoke clean \
-        web-dist dist dist-linux dist-src notes release-local
+        web-dist dist dist-linux dist-src notes bundle release-local
 
 help:
 	@echo "make build      - debug 构建"
@@ -25,6 +25,7 @@ help:
 	@echo "make dist-linux - Linux 全套（tar.gz / deb / AppImage，需 squashfs-tools）"
 	@echo "make dist-src   - 只打源码包（src.tar.gz / src.zip）"
 	@echo "make notes      - 生成 dist/RELEASE_NOTES.md"
+	@echo "make bundle     - 生成可上传包（MANIFEST.md / UPLOAD.md / *.zip）"
 	@echo "make smoke      - 启动后打一轮接口"
 	@echo "make clean      - 清理构建产物与本地数据"
 
@@ -91,6 +92,11 @@ dist-src:
 
 notes:
 	$(PYTHON) scripts/release_notes.py --version $(VERSION)
+
+# 把 dist/ 里的产物整理成可上传的一包（清单 + 上传步骤 + zip）
+bundle: notes
+	$(PYTHON) scripts/upload_bundle.py --version $(VERSION)
+	@ls -lh dist/MANIFEST.md dist/UPLOAD.md dist/*upload-bundle.zip
 
 # 一条命令产出本机全部发行物 + 发行说明（发布到 GitHub 由 tag 触发 CI）
 release-local: dist notes
